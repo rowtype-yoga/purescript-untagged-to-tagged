@@ -1,10 +1,13 @@
 { name = "untagged-to-tagged"
 , dependencies =
   [ "either"
+  , "literals"
   , "newtype"
   , "prelude"
   , "record"
+  , "type-equality"
   , "typelevel-lists"
+  , "unsafe-coerce"
   , "untagged-union"
   ]
 , packages = ./packages.dhall
