@@ -19,7 +19,8 @@ instance
     Left l -> Inl (Constructor (Argument l))
     Right r -> Inr $ toTaggedHelper r
 else instance
-  (HasRuntimeType l) =>
+  ( HasRuntimeType l
+  ) =>
   UntaggedHelper (OneOf l r) (Sum (Constructor syml (Argument l)) (Constructor symr (Argument r))) where
   toTaggedHelper untagged = case toEither1 untagged of
     Left l -> Inl (Constructor (Argument l))

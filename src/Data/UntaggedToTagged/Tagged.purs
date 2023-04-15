@@ -9,7 +9,8 @@ class TaggedHelper taggedGen untagged | taggedGen -> untagged where
   fromTaggedHelper :: taggedGen -> untagged
 
 instance
-  (InOneOf r l r) =>
+  ( InOneOf r l r
+  ) =>
   TaggedHelper (Sum (Constructor syml (Argument l)) (Constructor symr (Argument r))) (OneOf l r) where
   fromTaggedHelper (Inl (Constructor (Argument l))) = asOneOf l
   fromTaggedHelper (Inr (Constructor (Argument r))) = asOneOf r

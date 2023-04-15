@@ -11,12 +11,11 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Untagged.Union (type (|+|), asOneOf, toEither1)
 
-type ISU
-  = Int |+| String |+| Boolean
+type ISU = Int |+| String |+| Boolean
 
 -- newtype only for spec (show and eq instance required)
-newtype NTISU
-  = NTISU ISU
+newtype NTISU = NTISU ISU
+
 instance Newtype NTISU ISU
 derive newtype instance Eq NTISU
 
@@ -35,6 +34,7 @@ data IST
 derive instance Generic IST _
 instance Show IST where
   show = genericShow
+
 instance Eq IST where
   eq = genericEq
 

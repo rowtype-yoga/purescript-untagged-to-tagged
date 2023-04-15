@@ -9,8 +9,7 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Untagged.Union (type (|+|), asOneOf)
 
-type ISU
-  = Int |+| String |+| Boolean
+type ISU = Int |+| String |+| Boolean
 
 data IST
   = IT Int
@@ -20,6 +19,7 @@ data IST
 derive instance Generic IST _
 instance Show IST where
   show = genericShow
+
 instance Eq IST where
   eq = genericEq
 
