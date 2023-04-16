@@ -22,7 +22,7 @@ foreign import data MkOpts :: Tag -> Shape -> Opts
 ---
 
 class OptTranform :: Opts -> Type -> Type -> Constraint
-class OptTranform opts tin tout | opts tin -> tout where
+class OptTranform opts tin tout  where
   optTransform :: Proxy opts -> tin -> tout
 
 instance
