@@ -2,15 +2,10 @@
 , dependencies =
   [ "either"
   , "foreign"
-  , "literals"
-  , "newtype"
-  , "pipes"
   , "prelude"
   , "record"
-  , "safe-coerce"
   , "transformers"
   , "type-equality"
-  , "typelevel-lists"
   , "unsafe-coerce"
   , "untagged-union"
   ]
