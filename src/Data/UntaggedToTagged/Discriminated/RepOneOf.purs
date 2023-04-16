@@ -34,15 +34,14 @@ class
 
 instance
   ( Row.Cons symTag (StrLit caseTag) fx f
-  , OptTransform opts (Record rin) a
-  , TypeEquals opts (MkOpts (MkTag symTag) bx)
-  , Row.Cons symTag (StrLit caseTag) trash (rin)
-
+  , OptTransform opts (Record oneOf) rep
+  , TypeEquals opts (MkOpts (MkTag symTag) optsRest)
+  , Row.Cons symTag (StrLit caseTag) trash oneOf
   ) =>
   RepOneOf
     opts
-    (Record rin)
-    (Constructor caseTag (Argument a))
+    (Record oneOf)
+    (Constructor caseTag (Argument rep))
   where
   oneOfToRep prxOpts =
     Constructor <<< Argument <<< applyOpts prxOpts
@@ -58,7 +57,6 @@ instance
   , IsSymbol symTag
   , IsSymbol symCase
   , TypeEquals leftADT (Constructor symCase s)
-
   , InOneOf rightUnion (Record leftUnion) rightUnion
   ) =>
   RepOneOf

@@ -9,12 +9,10 @@ import Type.Proxy (Proxy)
 
 class Discriminated :: Opts -> Type -> Type -> Constraint
 class Discriminated opts untagged tagged where
-  -- | Convert an untagged union to a tagged union. E.g. 
-  -- | 
-  -- | ```purescript
-  -- | ...
-  -- | ```
+  -- | Convert an untagged union to a tagged union with discrimination options.
   toTaggedBy :: Proxy opts -> untagged -> tagged
+
+  -- | Convert a tagged union to an untagged union with discrimination options.
   fromTaggedBy :: Proxy opts -> tagged -> untagged
 
 instance
