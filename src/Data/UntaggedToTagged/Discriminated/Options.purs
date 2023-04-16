@@ -1,6 +1,9 @@
 module Data.UntaggedToTagged.Discriminated.Options where
 
+import Prelude
+
 import Data.Symbol (class IsSymbol)
+import Literals (StringLit, stringLit)
 import Prim.Row as Row
 import Record as Record
 import Type.Proxy (Proxy(..))
@@ -21,27 +24,53 @@ foreign import data MkOpts :: Tag -> Shape -> Opts
 
 ---
 
-class OptTranform :: Opts -> Type -> Type -> Constraint
-class OptTranform opts tin tout  where
-  optTransform :: Proxy opts -> tin -> tout
+class OptTransform :: Opts -> Type -> Type -> Constraint
+class OptTransform opts a b where
+  applyOpts :: Proxy opts -> a -> b
+  revertOpts :: Proxy opts -> b -> a
 
 instance
-  ( Row.Cons tagSym a rout rin
-  , IsSymbol tagSym
-  , Row.Lacks tagSym rout
+  ( Row.Cons symTag (StringLit symCase) rb ra
+  , Row.Lacks symTag rb
+  , IsSymbol symTag
+  , IsSymbol symCase
   ) =>
-  OptTranform (MkOpts (MkTag tagSym) MkShapeFlat) (Record rin) (Record rout)
+  OptTransform (MkOpts (MkTag symTag) MkShapeFlat) (Record ra) (Record rb)
   where
-  optTransform _ = Record.delete prxTagSym
+
+  applyOpts _ =
+    Record.delete prxSymTag
     where
-    prxTagSym = Proxy :: _ tagSym
+    prxSymTag = Proxy :: _ symTag
+
+  revertOpts _ =
+    Record.insert prxSymTag stringLitCase
+    where
+    prxSymTag = Proxy :: _ symTag
+    stringLitCase = stringLit :: _ symCase
 
 instance
-  ( Row.Cons symVal tout rx rin
+  ( Row.Cons symTag (StringLit symCase) () ra'
+  , Row.Lacks symVal ra'
+  , Row.Cons symVal b ra' ra
   , IsSymbol symVal
+  , IsSymbol symTag
+  , IsSymbol symCase
   ) =>
-  OptTranform (MkOpts (MkTag symTag) (MkShapeNested symVal)) (Record rin) tout
+  OptTransform (MkOpts (MkTag symTag) (MkShapeNested symVal)) (Record ra) b
   where
-  optTransform _ = Record.get prxSym
+
+  applyOpts _ =
+    Record.get prxSymVal
     where
-    prxSym = Proxy :: _ symVal
+    prxSymVal = Proxy :: _ symVal
+
+  revertOpts _ val =
+    {}
+      # Record.insert prxSymTag stringLitCase
+      # Record.insert prxSymVal val
+    where
+    prxSymVal = Proxy :: _ symVal
+    prxSymTag = Proxy :: _ symTag
+    stringLitCase = stringLit :: _ symCase
+

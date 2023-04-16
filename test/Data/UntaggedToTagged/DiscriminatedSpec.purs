@@ -2,21 +2,42 @@ module Test.Data.UntaggedToTagged.DiscriminatedSpec where
 
 import Prelude
 
+import Control.Monad.Except (runExcept, throwError)
+import Data.Either (Either(..))
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
+import Data.Symbol (class IsSymbol, reflectSymbol)
+import Data.UntaggedToTagged.Discriminated (fromTaggedBy, toTaggedBy)
 import Data.UntaggedToTagged.Discriminated.Options (MkOpts, MkShapeFlat, MkShapeNested, MkTag)
-import Data.UntaggedToTagged.Discriminated.Untagged (fromTaggedBy, toTaggedBy)
-import Literals (StringLit)
+import Foreign as F
+import Literals (StringLit, stringLit)
+import Pipes.Core (reflect)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (AnyShow(..), shouldEqual)
 import Type.Proxy (Proxy(..))
-import Unsafe.Coerce (unsafeCoerce)
+import Untagged.TypeCheck (class HasRuntimeType, hasRuntimeType)
 import Untagged.Union (type (|+|), asOneOf)
 
-type UnionRemoteDataNested =
+--------------------------------------------------------------------------------
+--- Types
+--------------------------------------------------------------------------------
+
+data Wrap a = Wrap a
+
+instance IsSymbol sym => HasRuntimeType (Wrap (StringLit sym))
+  where
+  hasRuntimeType prx foreign_ =
+    case runExcept $ F.readString foreign_ of
+      Left _ -> false
+      Right str -> str == reflectSymbol prxSym
+    where
+    prxSym = Proxy :: _ sym
+
+--- | Sample type with nested discrimination encoding
+type OneOfRemoteDataNested =
   { kind :: StringLit "Success"
   , value ::
-      { result :: Array String }
+      { result :: String }
   }
     |+|
       { kind :: StringLit "Failure"
@@ -31,9 +52,10 @@ type UnionRemoteDataNested =
           { progress :: Number }
       }
 
-type UnionRemoteDataFlat =
+--- | Sample type with flat discrimination encoding
+type OneOfRemoteDataFlat =
   { kind :: StringLit "Success"
-  , result :: Array String
+  , result :: String
   }
     |+|
       { kind :: StringLit "Failure"
@@ -45,9 +67,10 @@ type UnionRemoteDataFlat =
       , progress :: Number
       }
 
+--- | Sample type native ADT
 data ADTRemoteData
   = Success
-      { result :: Array String }
+      { result :: String }
   | Failure
       { errorMsg :: String
       , errorCode :: Int
@@ -56,12 +79,9 @@ data ADTRemoteData
       { progress :: Number
       }
 
-derive instance Generic ADTRemoteData _
-
-instance Show ADTRemoteData where
-  show = genericShow
-
-derive instance Eq ADTRemoteData
+--------------------------------------------------------------------------------
+--- Spec
+--------------------------------------------------------------------------------
 
 spec :: Spec Unit
 spec =
@@ -74,44 +94,39 @@ spec =
             Proxy
               :: _ (MkOpts (MkTag "kind") MkShapeFlat)
 
-          x1 :: UnionRemoteDataFlat
-          x1 = asOneOf
-            { kind: unsafeCoerce 1 :: StringLit "Success"
-            , result: [ "one", "two", "three" ]
+          oneOf1 :: OneOfRemoteDataFlat
+          oneOf1 = asOneOf
+            { kind: stringLit :: StringLit "Success"
+            , result: "one-two-three"
             }
 
-          x2 :: UnionRemoteDataFlat
-          x2 = asOneOf
-            { kind: unsafeCoerce 1 :: StringLit "Failure"
+          oneOf2 :: OneOfRemoteDataFlat
+          oneOf2 = asOneOf
+            { kind: stringLit :: StringLit "Failure"
             , errorCode: 12
             , errorMsg: "dooh!"
             }
 
-          x3 :: UnionRemoteDataFlat
-          x3 = asOneOf
-            { kind: unsafeCoerce 1 :: StringLit "Loading"
+          oneOf3 :: OneOfRemoteDataFlat
+          oneOf3 = asOneOf
+            { kind: stringLit :: StringLit "Loading"
             , progress: 99.9
             }
 
-          y1 :: ADTRemoteData
-          y1 = Success { result: [ "one", "two", "three" ] }
+          adt1 :: ADTRemoteData
+          adt1 = Success { result: "one-two-three" }
 
-          y2 :: ADTRemoteData
-          y2 = Failure { errorMsg: "dooh!", errorCode: 12 }
+          adt2 :: ADTRemoteData
+          adt2 = Failure { errorMsg: "dooh!", errorCode: 12 }
 
-          y3 :: ADTRemoteData
-          y3 = Loading { progress: 99.9 }
+          adt3 :: ADTRemoteData
+          adt3 = Loading { progress: 99.9 }
 
-          z1 :: UnionRemoteDataFlat
-          z1 = fromTaggedBy opts y1
+        --(AnyShow $ fromTaggedBy opts adt1) `shouldEqual` (AnyShow oneOf1)
 
-          -- s :: ADTRemoteData
-          -- s = toTaggedBy opts x1
-
-        (toTaggedBy opts x1) `shouldEqual` y1
-        (toTaggedBy opts x2) `shouldEqual` y2
-        (toTaggedBy opts x3) `shouldEqual` y3
-        (AnyShow $ z) `shouldEqual` (AnyShow x1)
+        (fromTaggedBy opts adt1 # toTaggedBy opts) `shouldEqual` adt1
+        (fromTaggedBy opts adt2 # toTaggedBy opts) `shouldEqual` adt2
+        (fromTaggedBy opts adt3 # toTaggedBy opts) `shouldEqual` adt3
 
       it "should convert an untagged to a tagged union with options" do
         let
@@ -119,74 +134,49 @@ spec =
             Proxy
               :: _ (MkOpts (MkTag "kind") (MkShapeNested "value"))
 
-          x1 :: UnionRemoteDataNested
-          x1 = asOneOf
-            { kind: unsafeCoerce 1 :: StringLit "Success"
+          oneOf1 :: OneOfRemoteDataNested
+          oneOf1 = asOneOf
+            { kind: stringLit :: StringLit "Success"
             , value:
-                { result: [ "one", "two", "three" ] }
+                { result: "one-two-three" }
             }
 
-          x2 :: UnionRemoteDataNested
-          x2 = asOneOf
-            { kind: unsafeCoerce 1 :: StringLit "Failure"
+          oneOf2 :: OneOfRemoteDataNested
+          oneOf2 = asOneOf
+            { kind: stringLit :: StringLit "Failure"
             , value:
                 { errorCode: 12
                 , errorMsg: "dooh!"
                 }
             }
 
-          x3 :: UnionRemoteDataNested
-          x3 = asOneOf
-            { kind: unsafeCoerce 1 :: StringLit "Loading"
+          oneOf3 :: OneOfRemoteDataNested
+          oneOf3 = asOneOf
+            { kind: stringLit :: StringLit "Loading"
             , value:
                 { progress: 99.9 }
             }
 
-          y1 :: ADTRemoteData
-          y1 = Success { result: [ "one", "two", "three" ] }
+          adt1 :: ADTRemoteData
+          adt1 = Success { result: "one-two-three" }
 
-          y2 :: ADTRemoteData
-          y2 = Failure { errorMsg: "dooh!", errorCode: 12 }
+          adt2 :: ADTRemoteData
+          adt2 = Failure { errorMsg: "dooh!", errorCode: 12 }
 
-          y3 :: ADTRemoteData
-          y3 = Loading { progress: 99.9 }
+          adt3 :: ADTRemoteData
+          adt3 = Loading { progress: 99.9 }
 
-        (toTaggedBy opts x1) `shouldEqual` y1
-        (toTaggedBy opts x2) `shouldEqual` y2
-        (toTaggedBy opts x3) `shouldEqual` y3
+        (fromTaggedBy opts adt1 # toTaggedBy opts) `shouldEqual` adt1
+        (fromTaggedBy opts adt2 # toTaggedBy opts) `shouldEqual` adt2
+        (fromTaggedBy opts adt3 # toTaggedBy opts) `shouldEqual` adt3
 
-opts =
-  Proxy
-    :: _ (MkOpts (MkTag "kind") MkShapeFlat)
+--------------------------------------------------------------------------------
+--- Instances
+--------------------------------------------------------------------------------
 
-x1 :: UnionRemoteDataFlat
-x1 = asOneOf
-  { kind: unsafeCoerce 1 :: StringLit "Success"
-  , result: [ "one", "two", "three" ]
-  }
+derive instance Generic ADTRemoteData _
 
-x2 :: UnionRemoteDataFlat
-x2 = asOneOf
-  { kind: unsafeCoerce 1 :: StringLit "Failure"
-  , errorCode: 12
-  , errorMsg: "dooh!"
-  }
+instance Show ADTRemoteData where
+  show = genericShow
 
-x3 :: UnionRemoteDataFlat
-x3 = asOneOf
-  { kind: unsafeCoerce 1 :: StringLit "Loading"
-  , progress: 99.9
-  }
-
-y1 :: ADTRemoteData
-y1 = Success { result: [ "one", "two", "three" ] }
-
-y2 :: ADTRemoteData
-y2 = Failure { errorMsg: "dooh!", errorCode: 12 }
-
-y3 :: ADTRemoteData
-y3 = Loading { progress: 99.9 }
-
-
-z :: _
-z = fromTaggedBy opts y1
+derive instance Eq ADTRemoteData
