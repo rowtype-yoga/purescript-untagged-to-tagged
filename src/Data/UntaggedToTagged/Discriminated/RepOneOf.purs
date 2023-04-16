@@ -2,20 +2,26 @@ module Data.UntaggedToTagged.Discriminated.RepOneOf
   ( class RepOneOf
   , oneOfToRep
   , repToOneOf
-  ) where
+  )
+  where
 
 import Prelude
 
 import Data.Generic.Rep (Argument(..), Constructor(..), Sum(..))
 import Data.Symbol (class IsSymbol, reflectSymbol)
 import Data.UntaggedToTagged.Discriminated.Options (class OptTransform, MkOpts, MkTag, Opts, applyOpts, revertOpts)
-import Literals (StringLit, toValue)
+import Data.UntaggedToTagged.Discriminated.Types (StrLit, unStrLit)
 import Prim.Row as Row
 import Record as Record
 import Type.Equality (class TypeEquals)
 import Type.Proxy (Proxy(..))
 import Unsafe.Coerce (unsafeCoerce)
 import Untagged.Union (class InOneOf, OneOf, asOneOf)
+
+
+--------------------------------------------------------------------------------
+--- RepOneOf
+--------------------------------------------------------------------------------
 
 class RepOneOf :: Opts -> Type -> Type -> Constraint
 class
@@ -27,10 +33,10 @@ class
   repToOneOf :: Proxy opts -> rep -> oneOf
 
 instance
-  ( Row.Cons symTag (StringLit caseTag) fx f
+  ( Row.Cons symTag (StrLit caseTag) fx f
   , OptTransform opts (Record rin) a
   , TypeEquals opts (MkOpts (MkTag symTag) bx)
-  , Row.Cons symTag (StringLit caseTag) trash (rin)
+  , Row.Cons symTag (StrLit caseTag) trash (rin)
 
   ) =>
   RepOneOf
@@ -48,7 +54,7 @@ instance
   ( RepOneOf opts (Record leftUnion) leftADT
   , RepOneOf opts rightUnion rightADT
   , TypeEquals opts (MkOpts (MkTag symTag) optsRest)
-  , Row.Cons symTag (StringLit symCase) trash leftUnion
+  , Row.Cons symTag (StrLit symCase) trash leftUnion
   , IsSymbol symTag
   , IsSymbol symCase
   , TypeEquals leftADT (Constructor symCase s)
@@ -73,7 +79,7 @@ instance
       reflectSymbol prxSymCase
 
     tagRuntime =
-      toValue $ Record.get prxSymTag (unsafeCoerce untagged :: Record leftUnion)
+      unStrLit $ Record.get prxSymTag (unsafeCoerce untagged :: Record leftUnion)
 
     prxSymTag = Proxy :: _ symTag
     prxSymCase = Proxy :: _ symCase

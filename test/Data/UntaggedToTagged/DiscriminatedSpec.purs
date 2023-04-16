@@ -2,68 +2,50 @@ module Test.Data.UntaggedToTagged.DiscriminatedSpec where
 
 import Prelude
 
-import Control.Monad.Except (runExcept, throwError)
-import Data.Either (Either(..))
 import Data.Generic.Rep (class Generic)
-import Data.Show.Generic (genericShow)
-import Data.Symbol (class IsSymbol, reflectSymbol)
 import Data.UntaggedToTagged.Discriminated (fromTaggedBy, toTaggedBy)
 import Data.UntaggedToTagged.Discriminated.Options (MkOpts, MkShapeFlat, MkShapeNested, MkTag)
-import Foreign as F
-import Literals (StringLit, stringLit)
-import Pipes.Core (reflect)
+import Data.UntaggedToTagged.Discriminated.Types (StrLit, strLit)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (AnyShow(..), shouldEqual)
 import Type.Proxy (Proxy(..))
-import Untagged.TypeCheck (class HasRuntimeType, hasRuntimeType)
 import Untagged.Union (type (|+|), asOneOf)
 
 --------------------------------------------------------------------------------
 --- Types
 --------------------------------------------------------------------------------
 
-data Wrap a = Wrap a
-
-instance IsSymbol sym => HasRuntimeType (Wrap (StringLit sym))
-  where
-  hasRuntimeType prx foreign_ =
-    case runExcept $ F.readString foreign_ of
-      Left _ -> false
-      Right str -> str == reflectSymbol prxSym
-    where
-    prxSym = Proxy :: _ sym
-
 --- | Sample type with nested discrimination encoding
 type OneOfRemoteDataNested =
-  { kind :: StringLit "Success"
+  { kind :: StrLit "Success"
   , value ::
       { result :: String }
   }
     |+|
-      { kind :: StringLit "Failure"
+      { kind :: StrLit "Failure"
       , value ::
           { errorMsg :: String
           , errorCode :: Int
           }
       }
     |+|
-      { kind :: StringLit "Loading"
+      { kind :: StrLit "Loading"
       , value ::
           { progress :: Number }
       }
 
 --- | Sample type with flat discrimination encoding
 type OneOfRemoteDataFlat =
-  { kind :: StringLit "Success"
+  { kind :: StrLit "Success"
   , result :: String
   }
     |+|
-      { kind :: StringLit "Failure"
+      { kind :: StrLit "Failure"
       , errorMsg :: String
       , errorCode :: Int
       }
     |+|
-      { kind :: StringLit "Loading"
+      { kind :: StrLit "Loading"
       , progress :: Number
       }
 
@@ -87,96 +69,113 @@ spec :: Spec Unit
 spec =
   describe "Data.UntaggedToTagged.Discriminated" do
 
-    describe "toTaggedBy" do
-      it "should convert an untagged to a tagged union with options" do
-        let
-          opts =
-            Proxy
-              :: _ (MkOpts (MkTag "kind") MkShapeFlat)
+    describe "flat encoding" do
+      let
+        opts =
+          Proxy
+            :: _ (MkOpts (MkTag "kind") MkShapeFlat)
 
-          oneOf1 :: OneOfRemoteDataFlat
-          oneOf1 = asOneOf
-            { kind: stringLit :: StringLit "Success"
-            , result: "one-two-three"
-            }
+        oneOf1 :: OneOfRemoteDataFlat
+        oneOf1 = asOneOf
+          { kind: strLit :: StrLit "Success"
+          , result: "one-two-three"
+          }
 
-          oneOf2 :: OneOfRemoteDataFlat
-          oneOf2 = asOneOf
-            { kind: stringLit :: StringLit "Failure"
-            , errorCode: 12
-            , errorMsg: "dooh!"
-            }
+        oneOf2 :: OneOfRemoteDataFlat
+        oneOf2 = asOneOf
+          { kind: strLit :: StrLit "Failure"
+          , errorCode: 12
+          , errorMsg: "dooh!"
+          }
 
-          oneOf3 :: OneOfRemoteDataFlat
-          oneOf3 = asOneOf
-            { kind: stringLit :: StringLit "Loading"
-            , progress: 99.9
-            }
+        oneOf3 :: OneOfRemoteDataFlat
+        oneOf3 = asOneOf
+          { kind: strLit :: StrLit "Loading"
+          , progress: 99.9
+          }
 
-          adt1 :: ADTRemoteData
-          adt1 = Success { result: "one-two-three" }
+        adt1 :: ADTRemoteData
+        adt1 = Success { result: "one-two-three" }
 
-          adt2 :: ADTRemoteData
-          adt2 = Failure { errorMsg: "dooh!", errorCode: 12 }
+        adt2 :: ADTRemoteData
+        adt2 = Failure { errorMsg: "dooh!", errorCode: 12 }
 
-          adt3 :: ADTRemoteData
-          adt3 = Loading { progress: 99.9 }
+        adt3 :: ADTRemoteData
+        adt3 = Loading { progress: 99.9 }
 
-        --(AnyShow $ fromTaggedBy opts adt1) `shouldEqual` (AnyShow oneOf1)
+      describe "fromTaggedBy" do
+        it "should convert a tagged to an untagged union with discrimination options" do
 
-        (fromTaggedBy opts adt1 # toTaggedBy opts) `shouldEqual` adt1
-        (fromTaggedBy opts adt2 # toTaggedBy opts) `shouldEqual` adt2
-        (fromTaggedBy opts adt3 # toTaggedBy opts) `shouldEqual` adt3
+          (AnyShow $ fromTaggedBy opts adt1) `shouldEqual` (AnyShow oneOf1)
+          (AnyShow $ fromTaggedBy opts adt2) `shouldEqual` (AnyShow oneOf2)
+          (AnyShow $ fromTaggedBy opts adt3) `shouldEqual` (AnyShow oneOf3)
 
-      it "should convert an untagged to a tagged union with options" do
-        let
-          opts =
-            Proxy
-              :: _ (MkOpts (MkTag "kind") (MkShapeNested "value"))
+      describe "toTaggedBy" do
 
-          oneOf1 :: OneOfRemoteDataNested
-          oneOf1 = asOneOf
-            { kind: stringLit :: StringLit "Success"
-            , value:
-                { result: "one-two-three" }
-            }
+        it "should convert an untagged to a tagged union with discrimination options" do
 
-          oneOf2 :: OneOfRemoteDataNested
-          oneOf2 = asOneOf
-            { kind: stringLit :: StringLit "Failure"
-            , value:
-                { errorCode: 12
-                , errorMsg: "dooh!"
-                }
-            }
+          (AnyShow $ toTaggedBy opts oneOf1) `shouldEqual` (AnyShow adt1)
+          (AnyShow $ toTaggedBy opts oneOf2) `shouldEqual` (AnyShow adt2)
+          (AnyShow $ toTaggedBy opts oneOf3) `shouldEqual` (AnyShow adt3)
 
-          oneOf3 :: OneOfRemoteDataNested
-          oneOf3 = asOneOf
-            { kind: stringLit :: StringLit "Loading"
-            , value:
-                { progress: 99.9 }
-            }
+    describe "nested encodiing" do
 
-          adt1 :: ADTRemoteData
-          adt1 = Success { result: "one-two-three" }
+      let
+        opts =
+          Proxy
+            :: _ (MkOpts (MkTag "kind") (MkShapeNested "value"))
 
-          adt2 :: ADTRemoteData
-          adt2 = Failure { errorMsg: "dooh!", errorCode: 12 }
+        oneOf1 :: OneOfRemoteDataNested
+        oneOf1 = asOneOf
+          { kind: strLit :: StrLit "Success"
+          , value:
+              { result: "one-two-three" }
+          }
 
-          adt3 :: ADTRemoteData
-          adt3 = Loading { progress: 99.9 }
+        oneOf2 :: OneOfRemoteDataNested
+        oneOf2 = asOneOf
+          { kind: strLit :: StrLit "Failure"
+          , value:
+              { errorCode: 12
+              , errorMsg: "dooh!"
+              }
+          }
 
-        (fromTaggedBy opts adt1 # toTaggedBy opts) `shouldEqual` adt1
-        (fromTaggedBy opts adt2 # toTaggedBy opts) `shouldEqual` adt2
-        (fromTaggedBy opts adt3 # toTaggedBy opts) `shouldEqual` adt3
+        oneOf3 :: OneOfRemoteDataNested
+        oneOf3 = asOneOf
+          { kind: strLit :: StrLit "Loading"
+          , value:
+              { progress: 99.9 }
+          }
+
+        adt1 :: ADTRemoteData
+        adt1 = Success { result: "one-two-three" }
+
+        adt2 :: ADTRemoteData
+        adt2 = Failure { errorMsg: "dooh!", errorCode: 12 }
+
+        adt3 :: ADTRemoteData
+        adt3 = Loading { progress: 99.9 }
+
+      describe "fromTaggedBy" do
+        it "should convert a tagged to an untagged union with discrimination options" do
+
+          (AnyShow $ fromTaggedBy opts adt1) `shouldEqual` (AnyShow oneOf1)
+          (AnyShow $ fromTaggedBy opts adt2) `shouldEqual` (AnyShow oneOf2)
+          (AnyShow $ fromTaggedBy opts adt3) `shouldEqual` (AnyShow oneOf3)
+
+      describe "toTaggedBy" do
+
+        it "should convert an untagged to a tagged union with discrimination options" do
+
+          (AnyShow $ toTaggedBy opts oneOf1) `shouldEqual` (AnyShow adt1)
+          (AnyShow $ toTaggedBy opts oneOf2) `shouldEqual` (AnyShow adt2)
+          (AnyShow $ toTaggedBy opts oneOf3) `shouldEqual` (AnyShow adt3)
 
 --------------------------------------------------------------------------------
 --- Instances
 --------------------------------------------------------------------------------
 
 derive instance Generic ADTRemoteData _
-
-instance Show ADTRemoteData where
-  show = genericShow
 
 derive instance Eq ADTRemoteData
